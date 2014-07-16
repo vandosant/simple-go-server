@@ -12,8 +12,14 @@ type Page struct {
 	Body  []byte
 }
 
+type Tasks []Task
+
 type Task struct {
-	Name string
+	Name, Text string
+}
+
+func (tasks *Tasks) load(bytes []byte) error {
+	return json.Unmarshal(bytes, tasks)
 }
 
 func (p *Page) save() error {
@@ -30,30 +36,37 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func tasksHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/tasks/"):]
+func tasksHandler(w http.ResponseWriter, req *http.Request) {
+	title := req.URL.Path[len("/tasks/"):]
 	p, _ := loadPage(title)
 	fmt.Fprintf(w, "%s", p.Body)
 }
 
-func newTaskHandler(w http.ResponseWriter, r *http.Request) {
-	p := "Accepting new tasks here"
-	fmt.Fprintf(w, p)
+func newTaskHandler(rw http.ResponseWriter, req *http.Request) {
+	var jsonStream = []byte(`[
+		{"Name": "Buy Milk", "Text": "Two percent, organic free-range."},
+		{"Name": "Buy Bread", "Text": "Whole wheat."},
+		{"Name": "Get Camping Supplies", "Text": "Bug spray, sunscreen."},
+		{"Name": "Pay Phone Bill", "Text": "Due by Saturday."},
+		{"Name": "Call Mom", "Text": "You missed her birthday."}
+		]`)
+	var tasks Tasks
+	err := tasks.load(jsonStream)
+	if err != nil {
+		panic(err)
+	}
+
+
+	bytes, err := json.Marshal(tasks)
+	if err != nil {
+		panic(err)
+	}
+	rw.Header().Set("Content-Type", "application/json")
+	rw.Write(bytes)
 }
 
 func main() {
-	task1 := Task{"Get milk"}
-	task2 := Task{"Get bread"}
-	jsonTask1, _ := json.Marshal(task1)
-	jsonTask2, _ := json.Marshal(task2)
-
-	p1 := &Page{Title: "list1", Body: jsonTask1}
-	p1.save()
-
-	p2 := &Page{Title: "list2", Body: jsonTask2}
-	p2.save()
-
-	http.HandleFunc("/tasks/", tasksHandler)
 	http.HandleFunc("/tasks/new", newTaskHandler)
-	http.ListenAndServe(":8080", nil)
+	http.HandleFunc("/tasks/", tasksHandler)
+	http.ListenAndServe(":8000", nil)
 }
