@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"encoding/json"
+	"strconv"
 )
 
 type Page struct {
@@ -18,12 +19,18 @@ type Task struct {
 	Name, Text string
 }
 
-func (tasks *Tasks) load(bytes []byte) error {
+func (tasks *Tasks) load() error {
+	filename := "tasks.json"
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
 	return json.Unmarshal(bytes, tasks)
 }
 
 func (tasks *Tasks) save() error {
-	bytes, err := json.Marshal(tasks)
+	bytes, err := json.MarshalIndent(tasks, "", "    ")
 	filename := "tasks.json"
 	if err != nil {
 		return err
@@ -53,18 +60,16 @@ func tasksHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func newTaskHandler(rw http.ResponseWriter, req *http.Request) {
-	var jsonStream = []byte(`[
-		{"Name": "Buy Milk", "Text": "Two percent, organic free-range."},
-		{"Name": "Buy Bread", "Text": "Whole wheat."},
-		{"Name": "Get Camping Supplies", "Text": "Bug spray, sunscreen."},
-		{"Name": "Pay Phone Bill", "Text": "Due by Saturday."},
-		{"Name": "Call Mom", "Text": "You missed her birthday."}
-		]`)
+	var task Task
 	var tasks Tasks
-	err := tasks.load(jsonStream)
+
+	readJson(req, &task)
+
+	err := tasks.load()
 	if err != nil {
 		panic(err)
 	}
+	tasks = append(tasks, task)
 
 	tasks.save()
 
@@ -72,8 +77,25 @@ func newTaskHandler(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	rw.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Write(bytes)
+}
+
+func readJson(r *http.Request, v interface{}) {
+	defer r.Body.Close()
+
+	bytes, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(bytes, v)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
