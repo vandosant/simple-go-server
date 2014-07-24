@@ -44,7 +44,8 @@ func (p *Page) save() error {
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
-func loadPage(title string) (*Page, error) {
+func loadPage(path string) (*Page, error) {
+	title := path[1:]
 	filename := title + ".json"
 	body, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -54,8 +55,8 @@ func loadPage(title string) (*Page, error) {
 }
 
 func tasksHandler(w http.ResponseWriter, req *http.Request) {
-	title := req.URL.Path[len("/tasks/"):]
-	p, _ := loadPage(title)
+	path := req.URL.Path[:len("/tasks")]
+	p, _ := loadPage(path)
 	fmt.Fprintf(w, "%s", p.Body)
 }
 
@@ -100,6 +101,6 @@ func readJson(r *http.Request, v interface{}) {
 
 func main() {
 	http.HandleFunc("/tasks/new", newTaskHandler)
-	http.HandleFunc("/tasks/", tasksHandler)
+	http.HandleFunc("/tasks", tasksHandler)
 	http.ListenAndServe(":8000", nil)
 }
